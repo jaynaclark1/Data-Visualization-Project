@@ -1,0 +1,286 @@
+---
+title: "movies project"
+author: "JAYNA CLARK"
+date: '`2/28/2025'
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+movies<-read.csv("cleaned_imdb_2024.csv")
+```
+
+
+#### Viewing structure of data set
+```{r}
+summary(movies)
+```
+
+
+```{r}
+str(movies)
+```
+
+#### Cleaning
+
+Function to make numeric and remove the extra characters
+```{r}
+clean_numeric <- function(x) {
+  as.numeric(gsub("[^0-9.]", "", x))
+}
+
+# Apply the function to the relevant columns
+movies$Vote_Count <- clean_numeric(movies$Vote_Count)
+movies$Budget_USD <- clean_numeric(movies$Budget_USD)
+movies$Revenue_. <- clean_numeric(movies$Revenue_.)
+movies$Run_Time_Minutes <- clean_numeric(movies$Run_Time_Minutes)
+
+```
+
+make date a date variable 
+```{r}
+movies$Release_Date <- as.Date(movies$Release_Date)
+```
+
+replace 0s with na
+```{r}
+movies <- movies |>
+  mutate(across(c(Revenue_.,Budget_USD,Vote_Count,Vote_Average), ~ replace(., . == 0, NA)))
+```
+
+```{r}
+movies <- movies[movies$Movie_Name != "Mussolini: Son of the Century", ]
+	
+movies <- movies[movies$Movie_Name != "All for One", ]
+
+movies <- movies[movies$Movie_Name != "The Day the Earth Blew Up: A Looney Tunes Movie", ]
+
+```
+
+
+#### Rating
+
+```{r}
+movies|>
+ggplot( aes(x = Vote_Average)) +
+  geom_histogram(binwidth = 0.25, fill = "lightpink3", color = "black") +
+  labs(title = "Distribution of IMDb Ratings", x = "Rating", y = "Frequency")+
+  theme_minimal()
+```
+
+```{r}
+mean(movies$Vote_Average, na.rm = TRUE)
+median(movies$Vote_Average, na.rm = TRUE)
+sd(movies$Vote_Average, na.rm = TRUE)
+```
+
+```{r}
+r_value <- cor(movies$Budget_USD,movies$Revenue_.,use = "complete.obs")
+print(r_value)
+```
+```{r}
+movies|>
+ggplot(aes(x = Budget_USD, y = Revenue_.)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightblue")+
+  labs(title = "Movie Budget vs. Revenue", x = "Budget (Million USD)", y = "Revenue (Million USD)")
+```
+Month Barchart 
+
+```{r}
+movies$Release_Date <- as.Date(movies$Release_Date, format = "%m/%d/%Y")
+movies$release_month <- format(movies$Release_Date, "%B")
+
+movies_per_month <- movies |>
+  group_by(release_month) %>%
+  summarise(count = n()) %>%
+  arrange(match(release_month, month.name))
+
+movies_per_month$release_month <- factor(movies_per_month$release_month, levels = month.name)
+```
+
+```{r}
+ggplot(movies_per_month, aes(x = release_month, y = count)) +
+  geom_bar(stat = "identity", fill = "plum",color = "black") +
+  labs(title = "Number of Movies Released Per Month", x = "Month", y = "Number of Movies") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Top 10 movies revenue 
+
+```{r}
+top_movies_rev <- movies |>
+  arrange(Revenue_.) |>
+  head(10)
+
+top_movies_rev|>
+ggplot(aes(x = reorder(Movie_Name, Revenue_.), y = Revenue_.)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Top 10 2024 Movies by Revenue", x = "Movie Title", y = "Revenue (Million USD)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Top budget 
+
+```{r}
+top_movies_budget <- movies |>
+  arrange(desc(Budget_USD)) |>
+  head(10)
+
+top_movies_budget|>
+ggplot(aes(x = reorder(Movie_Name, Budget_USD), y = Budget_USD)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Top 10 2024 Movies by Budget", x = "Movie Title", y = "Budget (Million USD)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Run time
+
+```{r}
+movies|>
+ggplot( aes(x = Run_Time_Minutes)) +
+  geom_histogram(binwidth = 10, fill = "olivedrab3", color = "black") +
+  labs(title = "Distribution of Movie Run Times", x = "Run Time (minutes)", y = "Frequency")+
+  theme_minimal()
+```
+
+```{r}
+ggplot(movies, aes(y = Run_Time_Minutes)) +
+  geom_boxplot(fill = "olivedrab3") +
+  labs(title = "Boxplot of Movie Runtimes", y = "Run Time (Minutes)") +
+  coord_flip()+
+  theme_minimal()+
+    theme(axis.text.y = element_blank(),axis.ticks.y = element_blank())
+```
+
+```{r}
+fivenum(movies$Run_Time_Minutes)
+mean(movies$Run_Time_Minutes, na.rm = TRUE)
+sd(movies$Run_Time_Minutes, na.rm = TRUE)
+
+```
+
+
+
+```{r}
+r_value <- cor(movies$Vote_Count,movies$Vote_Average,use = "complete.obs")
+print(r_value)
+```
+
+popularity vs votes amount
+```{r}
+movies|>
+ggplot(aes(x = Vote_Count, y = Vote_Average)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred")+
+  labs(title = "Vote Count vs Average Vote (Rating out of 10)", x = "Amount of Votes on IMBd", y = "Average Vote (Rating) on IMBd")
+```
+
+top ten rated 
+```{r}
+top_rated_movies <- movies |>
+  arrange(desc(Revenue_.)) |>
+  head(10)
+
+ggplot(top_rated_movies, aes(x = reorder(Movie_Name, Revenue_.), y = Revenue_.)) +
+  geom_bar(stat = "identity", fill = "lightyellow2", color = "black") +
+  labs(title = "Top 10 2024 Movies by Revenue", x = "Movie Title", y = "Revenue (Million USD)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+r_value <- cor(movies$Run_Time_Minutes,movies$Revenue_.,use = "complete.obs")
+print(r_value)
+```
+ 
+
+```{r}
+#scaling
+movies$revenue_div10 <- movies$Revenue_./10
+movies|>
+ggplot(aes(x = Run_Time_Minutes, y = revenue_div10)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred")+
+  labs(title = "2024 Movie Runtime and Revenue ", x = "Runtime (minutes)", y = "Revenue (10s of Million USD)")
+```
+
+```{r}
+r_value <- cor(movies$revenue_div10,movies$Run_Time_Minutes,use = "complete.obs")
+print(r_value)
+```
+
+popularity vs votes amount
+```{r}
+movies|>
+ggplot(aes(x = Budget_USD, y = Run_Time_Minutes)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred")+
+  labs(title = "Budget vs Runtime", x = "Budget (Million UDS)", y = "Runtime in Minutes")
+```
+
+
+```{r}
+r_value <- cor(movies$Budget_USD,movies$Vote_Average,use = "complete.obs")
+print(r_value)
+```
+```{r}
+r_value <- cor(movies$Revenue_.,movies$Vote_Average,use = "complete.obs")
+print(r_value)
+```
+```{r}
+movies|>
+ggplot(aes(x = Revenue_., y = Vote_Count)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "pink")+
+  labs(title = "Revenue vs. Number of Votes", x = "Revenue (Million USD)", y = "Vote Count")
+```
+```{r}
+movies|>
+ggplot(aes(x = Budget_USD, y = Vote_Count)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "pink")+
+  labs(title = "Budget vs. Number of Votes", x = "Budget (Million USD)", y = "Vote Count")
+```
+
+
+```{r}
+r_value <- cor(movies$Revenue_.,movies$Vote_Count,use = "complete.obs")
+print(r_value)
+```
+```{r}
+movies|>
+ggplot(aes(x = Run_Time_Minutes, y = Vote_Average)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "purple4")+
+  labs(title = "Run Time of Movie vs. Rating", 
+       x = "Run Time (minutes) ", 
+       y = "Movie Rating")
+```
+
+
+```{r}
+ggplot(movies, aes(y = Vote_Average)) +
+  geom_boxplot(fill = "lightpink3") +
+  labs(title = "Boxplot of IMBd Ratings", y = "IMBd Ratings") +
+  coord_flip()+
+  theme_minimal()+
+    theme(axis.text.y = element_blank(),axis.ticks.y = element_blank())
+```
+
+```{r}
+fivenum(movies$Vote_Average, na.rm = TRUE)
+```
+
+```{r}
+write.csv(movies, "C:\\Users\\jayna\\OneDrive\\Documents\\DataVis\\movies.csv", row.names = FALSE)
+```
+
+
